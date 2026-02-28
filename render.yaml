@@ -4,5 +4,8 @@ services:
     runtime: python
     plan: free
     pythonVersion: 3.12.9
-    buildCommand: pip install -r requirements.txt && pip install --upgrade yt-dlp
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      pip install --upgrade yt-dlp
     startCommand: python test.py
