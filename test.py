@@ -8,8 +8,8 @@ import shutil
 from pathlib import Path
 from flask import Flask
 from dotenv import load_dotenv
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import Update, Bot
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 from yt_dlp import YoutubeDL
 import schedule
 
@@ -160,7 +160,7 @@ def ping():
 
 def run_flask():
     port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
 
 def self_ping():
     time.sleep(60)
@@ -236,7 +236,8 @@ def download_audio_with_retry(url, max_retries=3):
 # ==========================================
 
 # ============ Telegram Handlers ============
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+def start(update: Update, context: CallbackContext) -> None:
+    """Handler for /start command"""
     welcome_message = """
 <b>𝗞𝗜𝗥𝗔𝗞 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗 𝗠𝗣𝟯 - 𝗕𝗢𝗧</b>
 
@@ -254,7 +255,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     photo_url = "https://i.ibb.co/dJ6c0ctk/IMG-20260130-081334-718.jpg"
     
     try:
-        await context.bot.send_photo(
+        context.bot.send_photo(
             chat_id=update.message.chat_id,
             photo=photo_url,
             caption=welcome_message,
@@ -263,9 +264,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logging.info(f"✅ Welcome sent to user {update.message.chat_id}")
     except Exception as e:
         logging.error(f"Photo error: {str(e)[:100]}")
-        await update.message.reply_text(welcome_message, parse_mode='HTML')
+        update.message.reply_text(welcome_message, parse_mode='HTML')
 
-async def download_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+def download_audio(update: Update, context: CallbackContext) -> None:
+    """Handler for YouTube links"""
     if update.message.text and update.message.text.startswith('/'):
         return
     
@@ -274,16 +276,16 @@ async def download_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     if user_message and ('youtube.com' in user_message or 'youtu.be' in user_message):
         try:
-            await update.message.reply_text("📥 កំពុងទាញយក... សូមរង់ចាំសិន!")
+            update.message.reply_text("📥 កំពុងទាញយក... សូមរង់ចាំសិន!")
             
             # ទាញយក MP3
             info_dict, mp3_file_path = download_audio_with_retry(user_message)
             
-            await update.message.reply_text("✅ ទាញយករួច! កំពុងផ្ញើ MP3...")
+            update.message.reply_text("✅ ទាញយករួច! កំពុងផ្ញើ MP3...")
             
             # ផ្ញើឲ្យអ្នកប្រើ
             with open(mp3_file_path, 'rb') as audio:
-                await context.bot.send_audio(
+                context.bot.send_audio(
                     chat_id=chat_id,
                     audio=audio,
                     title=info_dict.get('title', 'Audio')[:64],
@@ -298,7 +300,7 @@ async def download_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
         except Exception as e:
             logging.error(f"Download error: {str(e)}")
-            await update.message.reply_text(
+            update.message.reply_text(
                 "❌ មានកំហុស! សូមព្យាយាមម្តងទៀត\n\n"
                 "សូមប្រាកដថា:\n"
                 "• តំណ YouTube ត្រឹមត្រូវ\n"
@@ -306,7 +308,7 @@ async def download_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
 
     elif user_message:
-        await update.message.reply_text(
+        update.message.reply_text(
             "⚠️ សូមផ្ញើតំណ YouTube\n\n"
             "ឧទាហរណ៍:\n"
             "• https://youtu.be/xxxx\n"
@@ -316,8 +318,10 @@ async def download_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 def main() -> None:
     if not TOKEN:
-        print("❌ ERROR: សូមបន្ថែម TELEGRAM_BOT_TOKEN ក្នុងឯកសារ .env")
+        logging.error("❌ ERROR: សូមបន្ថែម TELEGRAM_BOT_TOKEN ក្នុងឯកសារ .env")
         return
+    
+    logging.info(f"🚀 Starting Telegram bot with token: {TOKEN[:10]}...")
     
     # ពិនិត្យទំហំផ្ទុកពេលចាប់ផ្ដើម
     logging.info("🚀 Starting bot...")
@@ -327,13 +331,20 @@ def main() -> None:
     # ចាប់ផ្តើម keep-alive system
     keep_alive()
     
-    # ចាប់ផ្តើម Telegram bot
-    application = ApplicationBuilder().token(TOKEN).build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_audio))
-
+    # ចាប់ផ្តើម Telegram bot ជាមួយ Updater (កំណែ 13.x)
+    updater = Updater(token=TOKEN, use_context=True)
+    dispatcher = updater.dispatcher
+    
+    # បន្ថែម handlers
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, download_audio))
+    
+    # ចាប់ផ្តើម bot
     logging.info("🤖 Bot is now running and waiting for messages...")
-    application.run_polling()
+    updater.start_polling()
+    
+    # រង់ចាំឲ្យ bot ដំណើរការ
+    updater.idle()
 
 if __name__ == '__main__':
     main()
