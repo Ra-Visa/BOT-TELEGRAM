@@ -332,10 +332,11 @@ def main() -> None:
     keep_alive()
     
     # ចាប់ផ្តើម Telegram bot ជាមួយ Updater (កំណែ 20.x)
-    updater = Updater(token=TOKEN, use_context=True)
+    # កែត្រង់នេះ! យក token= ចេញ
+    updater = Updater(TOKEN, use_context=True)
     dispatcher = updater.dispatcher
     
-    # បន្ថែម handlers (កែ Filters ជា filters)
+    # បន្ថែម handlers (ប្រើ filters អក្សរតូច)
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_audio))
     
