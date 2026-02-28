@@ -9,7 +9,7 @@ from pathlib import Path
 from flask import Flask
 from dotenv import load_dotenv
 from telegram import Update, Bot
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, CommandHandler, MessageHandler, filters, CallbackContext
 from yt_dlp import YoutubeDL
 import schedule
 
@@ -331,13 +331,13 @@ def main() -> None:
     # ចាប់ផ្តើម keep-alive system
     keep_alive()
     
-    # ចាប់ផ្តើម Telegram bot ជាមួយ Updater (កំណែ 13.x)
+    # ចាប់ផ្តើម Telegram bot ជាមួយ Updater (កំណែ 20.x)
     updater = Updater(token=TOKEN, use_context=True)
     dispatcher = updater.dispatcher
     
-    # បន្ថែម handlers
+    # បន្ថែម handlers (កែ Filters ជា filters)
     dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, download_audio))
+    dispatcher.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_audio))
     
     # ចាប់ផ្តើម bot
     logging.info("🤖 Bot is now running and waiting for messages...")
