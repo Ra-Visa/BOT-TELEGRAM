@@ -3,6 +3,6 @@ services:
     name: telegram-mp3-bot
     runtime: python
     plan: free
-    autoDeploy: true
+    pythonVersion: 3.12.9
     buildCommand: pip install -r requirements.txt && pip install --upgrade yt-dlp
     startCommand: python test.py
